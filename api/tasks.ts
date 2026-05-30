@@ -6,20 +6,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sql = getDb()
 
   if (req.method === 'GET') {
-    const { admin, date_from, date_to } = req.query
+    const { admin, date_from, date_to } = req.query as Record<string, string>
     if (admin === '1' && !isAuthenticated(req)) return res.status(401).json({ error: 'Unauthorized' })
 
-    const rows = await sql`
-      SELECT t.*,
-        COUNT(r.id)::int AS reg_count
-      FROM vol_tasks t
-      LEFT JOIN vol_registrations r ON r.task_id = t.id
-      ${admin === '1' ? sql`` : sql`WHERE t.is_active = true`}
-      ${date_from ? sql`AND t.task_date >= ${date_from as string}` : sql``}
-      ${date_to   ? sql`AND t.task_date <= ${date_to as string}`   : sql``}
-      GROUP BY t.id
-      ORDER BY t.task_date ASC, t.created_at ASC
-    `
+    let rows
+    if (admin === '1') {
+      rows = await sql`
+        SELECT t.*, COUNT(r.id)::int AS reg_count
+        FROM vol_tasks t
+        LEFT JOIN vol_registrations r ON r.task_id = t.id
+        GROUP BY t.id
+        ORDER BY t.task_date ASC, t.created_at ASC`
+    } else if (date_from && date_to) {
+      rows = await sql`
+        SELECT t.*, COUNT(r.id)::int AS reg_count
+        FROM vol_tasks t
+        LEFT JOIN vol_registrations r ON r.task_id = t.id
+        WHERE t.is_active = true AND t.task_date >= ${date_from} AND t.task_date <= ${date_to}
+        GROUP BY t.id
+        ORDER BY t.task_date ASC, t.created_at ASC`
+    } else {
+      rows = await sql`
+        SELECT t.*, COUNT(r.id)::int AS reg_count
+        FROM vol_tasks t
+        LEFT JOIN vol_registrations r ON r.task_id = t.id
+        WHERE t.is_active = true
+        GROUP BY t.id
+        ORDER BY t.task_date ASC, t.created_at ASC`
+    }
+
     return res.status(200).json({ tasks: rows })
   }
 
