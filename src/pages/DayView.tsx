@@ -30,6 +30,8 @@ export function DayView() {
     ? format(parsed!, 'd MMMM yyyy, EEEE', { locale: ru })
     : ''
 
+
+
   return (
     <div className="min-h-screen" style={{ background: '#F5F0E8' }}>
       <header style={{ background: '#0F3D31' }} className="px-4 py-4">

@@ -120,7 +120,7 @@ export function AdminTasks() {
       ) : (
         <div className="space-y-3">
           {tasks.map(task => {
-            const dateLabel = format(new Date(task.task_date + 'T12:00:00'), 'd MMMM yyyy, EEE', { locale: ru })
+            const dateLabel = format(new Date(task.task_date.slice(0, 10) + 'T12:00:00'), 'd MMMM yyyy, EEE', { locale: ru })
             const isOpen = expanded === task.id
             const taskRegs = regs[task.id] ?? []
 
