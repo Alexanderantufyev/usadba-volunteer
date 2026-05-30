@@ -1,0 +1,39 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { getDb } from './_db'
+import { isAuthenticated } from './_auth'
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const sql = getDb()
+
+  if (req.method === 'GET') {
+    const { admin, date_from, date_to } = req.query
+    if (admin === '1' && !isAuthenticated(req)) return res.status(401).json({ error: 'Unauthorized' })
+
+    const rows = await sql`
+      SELECT t.*,
+        COUNT(r.id)::int AS reg_count
+      FROM vol_tasks t
+      LEFT JOIN vol_registrations r ON r.task_id = t.id
+      ${admin === '1' ? sql`` : sql`WHERE t.is_active = true`}
+      ${date_from ? sql`AND t.task_date >= ${date_from as string}` : sql``}
+      ${date_to   ? sql`AND t.task_date <= ${date_to as string}`   : sql``}
+      GROUP BY t.id
+      ORDER BY t.task_date ASC, t.created_at ASC
+    `
+    return res.status(200).json({ tasks: rows })
+  }
+
+  if (req.method === 'POST') {
+    if (!isAuthenticated(req)) return res.status(401).json({ error: 'Unauthorized' })
+    const b = req.body
+    if (!b.title?.trim() || !b.task_date) return res.status(400).json({ error: 'title и task_date обязательны' })
+    const [row] = await sql`
+      INSERT INTO vol_tasks (title, description, task_date, location, tools_info, max_volunteers)
+      VALUES (${b.title.trim()}, ${b.description ?? ''}, ${b.task_date},
+              ${b.location ?? ''}, ${b.tools_info ?? ''}, ${b.max_volunteers ?? 10})
+      RETURNING *`
+    return res.status(201).json({ task: row })
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' })
+}
